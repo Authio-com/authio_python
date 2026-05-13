@@ -1,0 +1,132 @@
+from __future__ import annotations
+
+from dataclasses import asdict
+from typing import Any, Optional
+
+import httpx
+
+from .types import Membership, Organization, Session, User
+
+
+class AuthioError(Exception):
+    def __init__(self, code: str, message: str, status: int, request_id: Optional[str] = None) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status = status
+        self.request_id = request_id
+
+
+class Authio:
+    """Authio Python server SDK."""
+
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        base_url: str = "https://api.authio.com",
+        client: Optional[httpx.Client] = None,
+    ) -> None:
+        if not api_key:
+            raise ValueError("Authio: api_key is required")
+        self.api_key = api_key
+        self.base_url = base_url.rstrip("/")
+        self._http = client or httpx.Client(timeout=30.0)
+
+    # ------------------------------------------------------------------
+    # Users
+    # ------------------------------------------------------------------
+
+    def get_user(self, user_id: str) -> User:
+        data = self._request("GET", f"/v1/users/{user_id}")
+        return User(**_keep(data, User))
+
+    def list_memberships(self, user_id: str) -> list[Membership]:
+        rows = self._request("GET", f"/v1/users/{user_id}/memberships") or []
+        return [Membership(**_keep(r, Membership)) for r in rows]
+
+    # ------------------------------------------------------------------
+    # Organizations
+    # ------------------------------------------------------------------
+
+    def list_organizations(self) -> list[Organization]:
+        rows = self._request("GET", "/v1/organizations") or []
+        return [Organization(**_keep(r, Organization)) for r in rows]
+
+    def create_organization(
+        self, *, name: str, slug: Optional[str] = None, domain: Optional[str] = None
+    ) -> Organization:
+        body: dict[str, Any] = {"name": name}
+        if slug:
+            body["slug"] = slug
+        if domain:
+            body["domain"] = domain
+        data = self._request("POST", "/v1/organizations", body)
+        return Organization(**_keep(data, Organization))
+
+    # ------------------------------------------------------------------
+    # Memberships
+    # ------------------------------------------------------------------
+
+    def add_member(self, organization_id: str, *, user_id: str, role: str) -> Membership:
+        data = self._request(
+            "POST",
+            f"/v1/organizations/{organization_id}/memberships",
+            {"user_id": user_id, "role": role},
+        )
+        return Membership(**_keep(data, Membership))
+
+    def remove_member(self, organization_id: str, membership_id: str) -> None:
+        self._request(
+            "DELETE",
+            f"/v1/organizations/{organization_id}/memberships/{membership_id}",
+        )
+
+    # ------------------------------------------------------------------
+    # Sessions
+    # ------------------------------------------------------------------
+
+    def switch_org(self, organization_id: str) -> Session:
+        data = self._request(
+            "POST", "/v1/sessions/switch-org", {"organization_id": organization_id}
+        )
+        return Session(**_keep(data, Session))
+
+    # ------------------------------------------------------------------
+    # internal
+    # ------------------------------------------------------------------
+
+    def _request(self, method: str, path: str, body: Optional[dict[str, Any]] = None) -> Any:
+        headers = {
+            "authorization": f"Bearer {self.api_key}",
+            "user-agent": "authio-python/0.1.0",
+        }
+        resp = self._http.request(
+            method, self.base_url + path, headers=headers, json=body
+        )
+        if resp.status_code >= 400:
+            try:
+                err = resp.json()
+            except Exception:
+                err = {}
+            raise AuthioError(
+                code=err.get("code", "request_failed"),
+                message=err.get("message", resp.reason_phrase),
+                status=resp.status_code,
+                request_id=err.get("request_id"),
+            )
+        if resp.status_code == 204 or not resp.content:
+            return None
+        return resp.json()
+
+
+def _keep(raw: dict[str, Any], cls: type) -> dict[str, Any]:
+    """Filter ``raw`` to keys understood by the dataclass.
+
+    The API may grow new fields; we ignore unknown ones to avoid version-lock.
+    """
+    fields = {f for f in cls.__dataclass_fields__}  # type: ignore[attr-defined]
+    return {k: v for k, v in raw.items() if k in fields}
+
+
+__all__ = ["Authio", "AuthioError", "asdict"]
