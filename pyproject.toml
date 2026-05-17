@@ -1,6 +1,6 @@
 [project]
 name = "authio"
-version = "0.1.0a0"
+version = "0.1.0"
 description = "Authio Python SDK — passwordless, multi-org auth for B2B apps."
 readme = "README.md"
 requires-python = ">=3.9"

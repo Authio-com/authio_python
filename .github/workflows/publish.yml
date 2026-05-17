@@ -1,0 +1,33 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Build + twine upload. The build step runs unconditionally so the
+# workflow can be validated on a tag push even before PyPI is wired; the
+# upload step is gated on PYPI_TOKEN being set.
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --upgrade build twine
+      - run: python -m build
+      - name: Upload to PyPI
+        if: env.PYPI_TOKEN != ''
+        run: twine upload --non-interactive dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+      - name: Skip publish (no PYPI_TOKEN secret)
+        if: env.PYPI_TOKEN == ''
+        run: |
+          echo "::notice::PYPI_TOKEN secret is not set; skipping publish step."
+          echo "Set PYPI_TOKEN in Settings → Secrets → Actions, then re-tag to release."
