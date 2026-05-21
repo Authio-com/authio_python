@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/logo-dark.png">
+    <img alt="Authio" src=".github/logo-light.png" width="220">
+  </picture>
+</p>
+
 # authio (Python)
 
 Authio Python server SDK. Multi-org-first auth for B2B Python apps (FastAPI, Django, Flask, Litestar, etc.).
