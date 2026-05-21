@@ -33,7 +33,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://authio.com"
-Source = "https://github.com/tcast/authio_python"
+Source = "https://github.com/authio-com/authio_python"
 
 [build-system]
 requires = ["setuptools>=70", "wheel"]
