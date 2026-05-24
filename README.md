@@ -7,6 +7,10 @@
 
 # authio (Python)
 
+> Part of **[Authio Lobby](https://authio.com/products/lobby)** —
+> Authio's drop-in passwordless authentication. Learn more at
+> https://authio.com/products/lobby.
+
 Authio Python server SDK. Multi-org-first auth for B2B Python apps (FastAPI, Django, Flask, Litestar, etc.).
 
 ## What's new — 2026-05-23 WorkOS-parity sprint
