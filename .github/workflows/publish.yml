@@ -8,9 +8,7 @@ on:
 permissions:
   contents: read
 
-# Build + twine upload. The build step runs unconditionally so the
-# workflow can be validated on a tag push even before PyPI is wired; the
-# upload step is gated on PYPI_TOKEN being set.
+# Build + twine upload. Missing PyPI credentials fail a release tag.
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -23,14 +21,14 @@ jobs:
           python-version: '3.12'
       - run: pip install --upgrade build twine
       - run: python -m build
+      - name: Require PyPI publish credentials
+        run: |
+          if [ -z "${PYPI_TOKEN:-}" ]; then
+            echo "::error::PYPI_TOKEN is required for a release tag"
+            exit 1
+          fi
       - name: Upload to PyPI
-        if: env.PYPI_TOKEN != ''
         run: twine upload --non-interactive dist/*
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-      - name: Skip publish (no PYPI_TOKEN secret)
-        if: env.PYPI_TOKEN == ''
-        run: |
-          echo "::notice::PYPI_TOKEN secret is not set; skipping publish step."
-          echo "Set PYPI_TOKEN in Settings → Secrets → Actions, then re-tag to release."
