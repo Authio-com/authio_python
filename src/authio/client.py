@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from typing import Any, Optional
+from urllib.parse import quote
 
 import httpx
 
@@ -38,11 +39,11 @@ class Authio:
     # ------------------------------------------------------------------
 
     def get_user(self, user_id: str) -> User:
-        data = self._request("GET", f"/v1/users/{user_id}")
+        data = self._request("GET", f"/v1/users/{_seg(user_id)}")
         return User(**_keep(data, User))
 
     def list_memberships(self, user_id: str) -> list[Membership]:
-        rows = self._request("GET", f"/v1/users/{user_id}/memberships") or []
+        rows = self._request("GET", f"/v1/users/{_seg(user_id)}/memberships") or []
         return [Membership(**_keep(r, Membership)) for r in rows]
 
     # ------------------------------------------------------------------
@@ -71,7 +72,7 @@ class Authio:
     def add_member(self, organization_id: str, *, user_id: str, role: str) -> Membership:
         data = self._request(
             "POST",
-            f"/v1/organizations/{organization_id}/memberships",
+            f"/v1/organizations/{_seg(organization_id)}/memberships",
             {"user_id": user_id, "role": role},
         )
         return Membership(**_keep(data, Membership))
@@ -79,7 +80,7 @@ class Authio:
     def remove_member(self, organization_id: str, membership_id: str) -> None:
         self._request(
             "DELETE",
-            f"/v1/organizations/{organization_id}/memberships/{membership_id}",
+            f"/v1/organizations/{_seg(organization_id)}/memberships/{_seg(membership_id)}",
         )
 
     # ------------------------------------------------------------------
@@ -118,6 +119,11 @@ class Authio:
         if resp.status_code == 204 or not resp.content:
             return None
         return resp.json()
+
+
+def _seg(value: str) -> str:
+    """Percent-encode a caller-supplied ID for use as one URL path segment."""
+    return quote(str(value), safe="")
 
 
 def _keep(raw: dict[str, Any], cls: type) -> dict[str, Any]:
