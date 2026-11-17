@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -10,7 +10,7 @@ from .types import Membership, Organization, Session, User
 
 
 class AuthioError(Exception):
-    def __init__(self, code: str, message: str, status: int, request_id: Optional[str] = None) -> None:
+    def __init__(self, code: str, message: str, status: int, request_id: str | None = None) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
@@ -26,7 +26,7 @@ class Authio:
         api_key: str,
         *,
         base_url: str = "https://api.authio.com",
-        client: Optional[httpx.Client] = None,
+        client: httpx.Client | None = None,
     ) -> None:
         if not api_key:
             raise ValueError("Authio: api_key is required")
@@ -55,7 +55,7 @@ class Authio:
         return [Organization(**_keep(r, Organization)) for r in rows]
 
     def create_organization(
-        self, *, name: str, slug: Optional[str] = None, domain: Optional[str] = None
+        self, *, name: str, slug: str | None = None, domain: str | None = None
     ) -> Organization:
         body: dict[str, Any] = {"name": name}
         if slug:
@@ -97,7 +97,7 @@ class Authio:
     # internal
     # ------------------------------------------------------------------
 
-    def _request(self, method: str, path: str, body: Optional[dict[str, Any]] = None) -> Any:
+    def _request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
         headers = {
             "authorization": f"Bearer {self.api_key}",
             "user-agent": "authio-python/0.1.0",
@@ -108,7 +108,7 @@ class Authio:
         if resp.status_code >= 400:
             try:
                 err = resp.json()
-            except Exception:
+            except ValueError:
                 err = {}
             raise AuthioError(
                 code=err.get("code", "request_failed"),

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 MembershipStatus = Literal["invited", "active", "suspended", "deactivated"]
 
@@ -12,9 +12,9 @@ class User:
     project_id: str
     email: str
     email_verified: bool
-    name: Optional[str] = None
-    avatar_url: Optional[str] = None
-    default_organization_id: Optional[str] = None
+    name: str | None = None
+    avatar_url: str | None = None
+    default_organization_id: str | None = None
 
 
 @dataclass
@@ -33,9 +33,7 @@ class Membership:
     organization_id: str
     role: str
     status: MembershipStatus
-    preferred_login_method: Optional[
-        Literal["passkey", "magic_link", "oauth", "sso"]
-    ] = None
+    preferred_login_method: Literal["passkey", "magic_link", "oauth", "sso"] | None = None
 
 
 @dataclass
@@ -49,5 +47,5 @@ class Session:
 
     session_id: str
     user_id: str
-    org_id: Optional[str] = None
-    role: Optional[str] = None
+    org_id: str | None = None
+    role: str | None = None
