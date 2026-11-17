@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any, Optional
+from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -9,7 +10,7 @@ from .types import Membership, Organization, Session, User
 
 
 class AuthioError(Exception):
-    def __init__(self, code: str, message: str, status: int, request_id: Optional[str] = None) -> None:
+    def __init__(self, code: str, message: str, status: int, request_id: str | None = None) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
@@ -25,7 +26,7 @@ class Authio:
         api_key: str,
         *,
         base_url: str = "https://api.authio.com",
-        client: Optional[httpx.Client] = None,
+        client: httpx.Client | None = None,
     ) -> None:
         if not api_key:
             raise ValueError("Authio: api_key is required")
@@ -38,11 +39,11 @@ class Authio:
     # ------------------------------------------------------------------
 
     def get_user(self, user_id: str) -> User:
-        data = self._request("GET", f"/v1/users/{user_id}")
+        data = self._request("GET", f"/v1/users/{_seg(user_id)}")
         return User(**_keep(data, User))
 
     def list_memberships(self, user_id: str) -> list[Membership]:
-        rows = self._request("GET", f"/v1/users/{user_id}/memberships") or []
+        rows = self._request("GET", f"/v1/users/{_seg(user_id)}/memberships") or []
         return [Membership(**_keep(r, Membership)) for r in rows]
 
     # ------------------------------------------------------------------
@@ -54,7 +55,7 @@ class Authio:
         return [Organization(**_keep(r, Organization)) for r in rows]
 
     def create_organization(
-        self, *, name: str, slug: Optional[str] = None, domain: Optional[str] = None
+        self, *, name: str, slug: str | None = None, domain: str | None = None
     ) -> Organization:
         body: dict[str, Any] = {"name": name}
         if slug:
@@ -71,7 +72,7 @@ class Authio:
     def add_member(self, organization_id: str, *, user_id: str, role: str) -> Membership:
         data = self._request(
             "POST",
-            f"/v1/organizations/{organization_id}/memberships",
+            f"/v1/organizations/{_seg(organization_id)}/memberships",
             {"user_id": user_id, "role": role},
         )
         return Membership(**_keep(data, Membership))
@@ -79,7 +80,7 @@ class Authio:
     def remove_member(self, organization_id: str, membership_id: str) -> None:
         self._request(
             "DELETE",
-            f"/v1/organizations/{organization_id}/memberships/{membership_id}",
+            f"/v1/organizations/{_seg(organization_id)}/memberships/{_seg(membership_id)}",
         )
 
     # ------------------------------------------------------------------
@@ -96,7 +97,7 @@ class Authio:
     # internal
     # ------------------------------------------------------------------
 
-    def _request(self, method: str, path: str, body: Optional[dict[str, Any]] = None) -> Any:
+    def _request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
         headers = {
             "authorization": f"Bearer {self.api_key}",
             "user-agent": "authio-python/0.1.0",
@@ -107,7 +108,7 @@ class Authio:
         if resp.status_code >= 400:
             try:
                 err = resp.json()
-            except Exception:
+            except ValueError:
                 err = {}
             raise AuthioError(
                 code=err.get("code", "request_failed"),
@@ -118,6 +119,11 @@ class Authio:
         if resp.status_code == 204 or not resp.content:
             return None
         return resp.json()
+
+
+def _seg(value: str) -> str:
+    """Percent-encode a caller-supplied ID for use as one URL path segment."""
+    return quote(str(value), safe="")
 
 
 def _keep(raw: dict[str, Any], cls: type) -> dict[str, Any]:

@@ -1,3 +1,5 @@
+import contextlib
+
 import pytest
 
 from authio import Authio, AuthioError, User
@@ -28,3 +30,26 @@ def test_user_dataclass():
         email_verified=True,
     )
     assert u.email == "a@b.c"
+
+
+def test_path_ids_are_escaped():
+    import httpx
+
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.raw_path.decode())
+        return httpx.Response(200, json={})
+
+    c = Authio(api_key="sk_test_x", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    evil = "../../admin?x=1#"
+    with contextlib.suppress(Exception):  # empty `{}` body can't build a model
+        c.get_user(evil)
+    with contextlib.suppress(Exception):
+        c.list_memberships(evil)
+    c.remove_member("o/1", "m/../2")
+    assert seen == [
+        "/v1/users/..%2F..%2Fadmin%3Fx%3D1%23",
+        "/v1/users/..%2F..%2Fadmin%3Fx%3D1%23/memberships",
+        "/v1/organizations/o%2F1/memberships/m%2F..%2F2",
+    ]
